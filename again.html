@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>FEMS · Friend Exercise Monitor System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ---------- GLOBAL DESIGN SYSTEM (your colour palette) ---------- */
+    :root {
+      --bg-main:       #0C1519;
+      --bg-card:       #0A1931;
+      --bg-surface:    #112250;
+      --accent-warm:   #CF9D7B;
+      --accent-gold:   #F4E3B2;
+      --accent-sand:   #D9CBC2;
+      --accent-olive:  #889063;
+      --accent-dark-olive: #45462A;
+      --accent-forest: #354024;
+      --accent-red:    #74070E;
+      --accent-red-deep: #310E10;
+      --text-primary:  #F6FAFD;
+      --text-muted:    #889063;
+      --border:        rgba(207,157,123,0.15);
+      --border-active: rgba(207,157,123,0.5);
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'DM Sans', 'Segoe UI', sans-serif;
+      --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+      --radius:       10px;
+      --radius-lg:    16px;
+      --transition:   0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    button { cursor: pointer; border: none; background: none; font-family: inherit; }
+    input, select, textarea { font-family: inherit; background: transparent; border: none; outline: none; color: var(--text-primary); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-card); }
+    ::-webkit-scrollbar-thumb { background: var(--accent-warm); border-radius: 2px; }
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; }
+    h1 { font-size: clamp(1.6rem, 3vw, 2.4rem); }
+    p { font-size: 0.9rem; color: var(--accent-sand); }
+
+    .hidden { display: none !important; }
+    .flex { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .text-muted { color: var(--text-muted); font-size: 0.8rem; }
+    .text-warm { color: var(--accent-warm); }
+
+    /* Loader */
+    #loader {
+      position: fixed; inset: 0; background: var(--bg-main); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      transition: opacity 0.5s ease;
+    }
+    .loader-logo { font-family: var(--font-display); font-size: 2rem; color: var(--accent-warm); letter-spacing: 4px; }
+    .loader-bar { width: 160px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .loader-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-warm), var(--accent-gold)); animation: loaderFill 1.4s ease forwards; }
+    @keyframes loaderFill { from { width: 0; } to { width: 100%; } }
+    #loader.fade-out { opacity: 0; pointer-events: none; }
+
+    /* Auth & Cards */
+    .auth-wrapper { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(ellipse at 30% 40%, rgba(207,157,123,0.06) 0%, transparent 70%); }
+    .auth-card { width: 100%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px 36px; animation: slideUp 0.5s cubic-bezier(0.4,0,0.2,1) both; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    .auth-logo { font-family: var(--font-display); font-size: 1.4rem; color: var(--accent-warm); text-align: center; margin-bottom: 4px; }
+    .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-sand); }
+    .form-input { width: 100%; background: rgba(246,250,253,0.04); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 14px; font-size: 0.9rem; transition: border-color var(--transition); }
+    .form-input:focus { border-color: var(--accent-warm); box-shadow: 0 0 0 3px rgba(207,157,123,0.12); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 24px; border-radius: var(--radius); font-size: 0.88rem; font-weight: 600; transition: all var(--transition); cursor: pointer; }
+    .btn-primary { background: var(--accent-warm); color: var(--bg-main); border: 1px solid var(--accent-warm); }
+    .btn-primary:hover { background: var(--accent-gold); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(207,157,123,0.25); }
+    .btn-ghost { background: transparent; color: var(--accent-sand); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent-warm); color: var(--accent-warm); }
+    .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+    .btn-full { width: 100%; }
+
+    /* App layout (sidebar + topbar) */
+    .app-wrapper { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 56px 1fr; min-height: 100vh; }
+    .topbar { grid-column: 1 / -1; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 100; }
+    .topbar-logo { font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-warm); letter-spacing: 3px; margin-right: auto; }
+    .topbar-date { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .topbar-user { display: flex; align-items: center; gap: 8px; }
+    .topbar-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-warm), var(--accent-red)); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .sidebar { background: var(--bg-card); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 0.85rem; color: var(--accent-sand); cursor: pointer; border-left: 2px solid transparent; transition: all var(--transition); margin-right: 12px; border-radius: 0 var(--radius) var(--radius) 0; }
+    .sidebar-item:hover, .sidebar-item.active { background: rgba(207,157,123,0.1); color: var(--accent-warm); border-left-color: var(--accent-warm); }
+    .main-content { padding: 28px 32px; overflow-y: auto; }
+    .page { display: none; animation: fadeIn 0.3s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Stats & Cards */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .stat-card .stat-value { font-family: var(--font-mono); font-size: 1.6rem; color: var(--accent-warm); font-weight: 700; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 16px; }
+    .card-title { font-family: var(--font-display); font-size: 1rem; color: var(--accent-gold); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .exercise-entry { background: rgba(246,250,253,0.02); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
+    .remove-exercise { color: var(--accent-red); font-size: 1.1rem; cursor: pointer; }
+    .history-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 20px; }
+    .cal-day { aspect-ratio: 1; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; position: relative; }
+    .cal-day.has-log { background: rgba(207,157,123,0.15); border-color: var(--accent-warm); color: var(--accent-warm); }
+    .cal-day.today { border-color: var(--accent-gold); color: var(--accent-gold); font-weight: 700; }
+    .dot { position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent-warm); }
+
+    /* Modals */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(10,25,49,0.85); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .textbook-modal, .edit-modal { width: 90%; max-width: 600px; background: var(--bg-card); border: 1px solid var(--border-active); border-radius: 20px; padding: 32px; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    .modal-overlay.open .textbook-modal, .modal-overlay.open .edit-modal { transform: scale(1); }
+    .gacha-overlay { position: fixed; inset: 0; background: rgba(12,21,25,0.95); display: flex; align-items: center; justify-content: center; z-index: 600; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+    .gacha-overlay.open { opacity: 1; pointer-events: all; }
+    .gacha-card { width: 340px; background: linear-gradient(145deg, var(--bg-card), var(--bg-surface)); border: 2px solid var(--accent-warm); border-radius: 20px; padding: 36px 32px; text-align: center; animation: gachaReveal 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes gachaReveal { from { opacity: 0; transform: scale(0.5) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0deg); } }
+    .weekly-progress-bar { height: 6px; background: var(--bg-surface); border-radius: 3px; overflow: hidden; }
+    .weekly-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-warm), var(--accent-gold)); transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; background: rgba(207,157,123,0.15); color: var(--accent-warm); }
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; }
+    .toast { background: var(--bg-card); border-left: 4px solid var(--accent-warm); padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; animation: fadeIn 0.2s; }
+    @media (max-width: 800px) { .app-wrapper { grid-template-columns: 1fr; } .sidebar { position: fixed; left: -220px; top: 56px; z-index: 200; transition: left var(--transition); } .sidebar.open { left: 0; } #hamburger { display: block !important; } }
+  </style>
+</head>
+<body>
+<div id="loader"><div class="loader-logo">📓 FEMS</div><div class="loader-bar"><div class="loader-bar-fill"></div></div><div class="text-muted">loading sanctuary</div></div>
+<div id="toast-container"></div>
+
+<!-- AUTH PAGES -->
+<div data-section="auth-login" class="hidden">
+  <div class="auth-wrapper"><div class="auth-card"><div class="auth-logo">📓 FEMS</div><div class="auth-tagline">friend exercise monitor system</div><h2>welcome back</h2><form id="loginForm"><div class="form-group"><label>Email or admin username</label><input type="text" id="loginId" class="form-input" required></div><div class="form-group"><label>Password</label><input type="password" id="loginPwd" class="form-input" required></div><button type="submit" class="btn btn-primary btn-full">Log in →</button><p style="text-align:center; margin-top:16px">No account? <span class="text-warm" style="cursor:pointer" onclick="showSection('auth-signup')">Sign up</span></p></form></div></div>
+</div>
+<div data-section="auth-signup" class="hidden">
+  <div class="auth-wrapper"><div class="auth-card"><div class="auth-logo">✍️ join</div><h2>create account</h2><form id="signupForm"><div class="form-group"><label>Full name</label><input type="text" id="signupName" class="form-input" required></div><div class="form-group"><label>Email</label><input type="email" id="signupEmail" class="form-input" required></div><div class="form-group"><label>Password (min 6)</label><input type="password" id="signupPwd" class="form-input" required></div><div class="form-group"><label>Confirm</label><input type="password" id="signupCpwd" class="form-input" required></div><button type="submit" class="btn btn-primary btn-full">Sign up →</button><p style="text-align:center; margin-top:16px">Already have an account? <span class="text-warm" style="cursor:pointer" onclick="showSection('auth-login')">Log in</span></p></form></div></div>
+</div>
+
+<!-- ONBOARDING (4 steps) -->
+<div data-section="onboarding" class="hidden"><div class="auth-wrapper"><div class="auth-card" style="max-width:500px"><div class="step-indicator" style="display:flex; gap:6px; justify-content:center; margin-bottom:24px"><div class="step-dot" data-step="1"></div><div class="step-dot" data-step="2"></div><div class="step-dot" data-step="3"></div><div class="step-dot" data-step="4"></div></div><div id="step1"><h3>👋 Your basics</h3><div class="form-group"><label>Height (cm)</label><input type="number" id="obHeight" class="form-input"></div><div class="form-group"><label>Weight (kg)</label><input type="number" id="obWeight" class="form-input"></div><div class="form-group"><label>Age</label><input type="number" id="obAge" class="form-input"></div><div class="form-group"><label>Goal</label><select id="obGoal" class="form-input"><option>Build muscle</option><option>Lose fat</option><option>Stay fit</option></select></div></div><div id="step2" class="hidden"><h3>🥗 Nutrition</h3><div class="form-group"><label>Diet</label><select id="obDiet" class="form-input"><option>Vegetarian</option><option>Non-Veg</option><option>Vegan</option></select></div><div class="form-group"><label>Target protein (g)</label><input type="number" id="obProtein" value="150" class="form-input"></div><div class="form-group"><label>Target calories</label><input type="number" id="obCalories" value="2200" class="form-input"></div></div><div id="step3" class="hidden"><h3>💪 Workout</h3><div class="form-group"><label>Workout days per week</label><input type="number" id="obWorkoutDays" class="form-input" placeholder="4"></div><div class="form-group"><label>Preferred split</label><select id="obSplit" class="form-input"><option>Push/Pull/Legs</option><option>Upper/Lower</option><option>Full Body</option></select></div></div><div id="step4" class="hidden"><h3>😴 Sleep</h3><div class="form-group"><label>Bedtime target</label><input type="time" id="obBedtime" class="form-input"></div><div class="form-group"><label>Wake time</label><input type="time" id="obWake" class="form-input"></div></div><div class="flex" style="justify-content:space-between; margin-top:24px"><button id="obBack" class="btn btn-ghost hidden">← Back</button><button id="obNext" class="btn btn-primary">Next →</button></div></div></div></div>
+
+<!-- MAIN APP -->
+<div data-section="app" class="hidden"><div class="app-wrapper"><div class="topbar"><div id="hamburger" style="cursor:pointer; font-size:1.4rem; display:none">☰</div><div class="topbar-logo">📓 FEMS</div><div class="topbar-date" id="topbarDate"></div><div class="topbar-user"><div class="topbar-avatar" id="topbarAvatar">U</div><span id="topbarName"></span><span class="topbar-logout" onclick="handleLogout()" style="cursor:pointer">🚪</span></div></div><div class="sidebar" id="sidebar"><div class="sidebar-item" data-page="dashboard">📊 Dashboard</div><div class="sidebar-item" data-page="log">✍️ Log Workout</div><div class="sidebar-item" data-page="history">📅 History</div><div class="sidebar-item" data-page="weekly">📆 Weekly Recap</div><div class="sidebar-item user-only" data-page="profile">👤 Profile</div><div class="sidebar-item admin-only" data-page="admin">🛡️ Admin Panel</div></div><div class="main-content"><div id="page-dashboard" class="page"><div class="stats-row"><div class="stat-card"><div class="stat-value" id="dashXp">0</div><div class="stat-label">Total XP</div></div><div class="stat-card"><div class="stat-value" id="dashStreak">0</div><div class="stat-label">Streak</div></div><div class="stat-card"><div class="stat-value" id="dashWorkouts">0</div><div class="stat-label">Workouts</div></div><div class="stat-card"><div class="stat-value" id="dashPmo">0</div><div class="stat-label">PMO-free</div></div></div><div class="card"><div class="card-title">🎯 Today's goal</div><div id="dashGoal"></div><div>Current weight: <span id="dashWeight"></span> kg</div></div><div class="card"><div class="card-title">📋 Today's habits</div><div id="todayStatus"></div><div class="xp-bar-wrap"><div id="dashXpBar" class="xp-bar" style="width:0%"></div></div><div id="dashDailyXp" class="text-muted"></div></div><div class="card"><div class="card-title">🎲 30‑day gacha</div><button class="btn btn-ghost btn-sm" onclick="Gacha.trigger()">Roll recap 🎲</button></div></div><div id="page-log" class="page"><div class="card"><div class="card-title">📝 New session</div><input type="date" id="logDate" class="form-input" style="width:auto; margin-bottom:16px"><div id="logExercises"></div><button class="btn btn-ghost btn-sm" onclick="addExerciseField()">+ Add exercise</button><div class="form-group"><label>Steps</label><input type="number" id="logSteps" class="form-input"></div><div class="form-group"><label>Protein (g)</label><input type="number" id="logProtein" class="form-input"></div><div class="form-group"><label>Slept on time (before 11:30pm)</label><select id="logSlept" class="form-input"><option value="false">No</option><option value="true">Yes</option></select></div><div class="form-group"><label>PMO‑free day</label><select id="logPmo" class="form-input"><option value="false">No</option><option value="true">Yes</option></select></div><div class="form-group"><label>No phone after waking</label><select id="logPhone" class="form-input"><option value="false">No</option><option value="true">Yes</option></select></div><div class="form-group"><label>Mood (1‑10)</label><input type="range" id="logMood" min="1" max="10" value="7"><span id="moodValue">7/10</span></div><div class="form-group"><label>Notes</label><textarea id="logNotes" rows="2" class="form-input"></textarea></div><button class="btn btn-primary" onclick="saveWorkoutLog()">💾 Save Session</button></div></div><div id="page-history" class="page"><div class="flex" style="justify-content:space-between"><button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)">←</button><span id="monthLabel"></span><button class="btn btn-ghost btn-sm" onclick="changeMonth(1)">→</button></div><div id="calendarGrid" class="history-grid"></div></div><div id="page-weekly" class="page"><div id="weeklyContent"></div><p class="text-muted" style="margin-top:16px">📸 Screenshot to compare progress</p></div><div id="page-profile" class="page"><div class="card"><div class="card-title">👤 Personal info</div><div><strong>Name:</strong> <span id="profName"></span></div><div><strong>Email:</strong> <span id="profEmail"></span></div><div><strong>Height:</strong> <span id="profHeight"></span> cm</div><div><strong>Weight:</strong> <span id="profWeight"></span> kg</div><div><strong>Goal:</strong> <span id="profGoal"></span></div><div><strong>Diet:</strong> <span id="profDiet"></span></div><button class="btn btn-ghost btn-sm" onclick="openEditProfileModal()">✏️ Edit Profile</button></div><div class="card"><div class="card-title">🏆 Stats</div><div>Total XP: <span id="profXp"></span></div><div>Streak: <span id="profStreak"></span></div></div></div><div id="page-admin" class="page"><div class="card"><div class="card-title">📋 Registered users</div><table class="admin-table" style="width:100%; border-collapse:collapse"><thead><tr><th>Name</th><th>Email</th><th>Actions</th></tr></thead><tbody id="adminUserList"></tbody></table></div></div></div></div></div>
+
+<!-- MODALS -->
+<div id="textbookModal" class="modal-overlay"><div class="textbook-modal"><span style="float:right; cursor:pointer" onclick="closeModal('textbookModal')">✕</span><h3 id="tbDate"></h3><div id="tbGood"></div><div id="tbBad"></div><div id="tbDetails"></div></div></div>
+<div id="gachaModal" class="gacha-overlay"><div class="gacha-card"><span class="gacha-emoji" id="gachaEmoji">🏆</span><h2 id="gachaRank">SSR</h2><p id="gachaMsg"></p><div class="gacha-stats"><div><div id="gachaDays">0</div><div>active days</div></div><div><div id="gachaXp">0</div><div>XP earned</div></div></div><button class="btn btn-sm" onclick="closeModal('gachaModal')">Close</button></div></div>
+<div id="editProfileModal" class="modal-overlay"><div class="edit-modal"><h3>Edit Profile</h3><div class="form-group"><label>Height (cm)</label><input type="number" id="editHeight" class="form-input"></div><div class="form-group"><label>Weight (kg)</label><input type="number" id="editWeight" class="form-input"></div><div class="form-group"><label>Goal</label><select id="editGoal" class="form-input"><option>Build muscle</option><option>Lose fat</option><option>Stay fit</option></select></div><div class="form-group"><label>Diet</label><select id="editDiet" class="form-input"><option>Vegetarian</option><option>Non-Veg</option><option>Vegan</option></select></div><div class="flex" style="justify-content:flex-end"><button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancel</button><button class="btn btn-primary" onclick="saveProfileEdit()">Save</button></div></div></div>
+
+<script>
+// ---------- STORAGE & AUTH ----------
+let currentUser = null;
+function getUsers() { return JSON.parse(localStorage.getItem('fems_users') || '[]'); }
+function saveUsers(users) { localStorage.setItem('fems_users', JSON.stringify(users)); }
+function getUserData(email, key) { return JSON.parse(localStorage.getItem(`fems_${email}_${key}`) || 'null'); }
+function setUserData(email, key, val) { localStorage.setItem(`fems_${email}_${key}`, JSON.stringify(val)); }
+function getWorkouts(email) { return getUserData(email, 'workouts') || {}; }
+function saveWorkouts(email, data) { setUserData(email, 'workouts', data); }
+function getProfile(email) { return getUserData(email, 'profile') || null; }
+function saveProfile(email, prof) { setUserData(email, 'profile', prof); }
+function getStats(email) { return getUserData(email, 'stats') || { totalXP:0, streak:0, workouts:0, pmoDays:0 }; }
+function saveStats(email, stats) { setUserData(email, 'stats', stats); }
+
+function showSection(id) { document.querySelectorAll('[data-section]').forEach(s => s.classList.add('hidden')); document.querySelector(`[data-section="${id}"]`).classList.remove('hidden'); }
+function toast(msg, type='info') { const c = document.getElementById('toast-container'); const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg; c.appendChild(t); setTimeout(()=>t.remove(),2500); }
+
+// Auth
+function handleLogin(e) { e.preventDefault(); const id = document.getElementById('loginId').value; const pwd = document.getElementById('loginPwd').value; if(id === 'admin@fems.app' && pwd === 'sashwat') { currentUser = { email:'admin@fems.app', name:'Admin', isAdmin:true }; localStorage.setItem('fems_session', JSON.stringify(currentUser)); initApp(); return; } const users = getUsers(); const u = users.find(u=>u.email===id && u.password===pwd); if(u){ currentUser = { email:u.email, name:u.name, isAdmin:false }; localStorage.setItem('fems_session', JSON.stringify(currentUser)); initApp(); } else toast('Invalid credentials','error'); }
+function handleSignup(e) { e.preventDefault(); const name = document.getElementById('signupName').value; const email = document.getElementById('signupEmail').value; const pwd = document.getElementById('signupPwd').value; const cpwd = document.getElementById('signupCpwd').value; if(pwd!==cpwd) return toast('Passwords mismatch'); if(getUsers().find(u=>u.email===email)) return toast('Email exists'); const users = getUsers(); users.push({ email, name, password:pwd }); saveUsers(users); toast('Account created! Please login'); showSection('auth-login'); }
+function handleLogout() { localStorage.removeItem('fems_session'); currentUser=null; showSection('auth-login'); }
+
+// Onboarding
+let obStep=1;
+function updateOnboarding(){
+  for(let i=1;i<=4;i++) document.getElementById(`step${i}`).classList.toggle('hidden', i!==obStep);
+  document.querySelectorAll('.step-dot').forEach((d,i)=>{ d.style.background = i+1<=obStep ? 'var(--accent-warm)' : 'var(--border)'; });
+  document.getElementById('obBack').classList.toggle('hidden', obStep===1);
+  document.getElementById('obNext').innerText = obStep===4 ? 'Finish →' : 'Next →';
+}
+function nextStep(){ if(obStep<4){ obStep++; updateOnboarding(); } else finishOnboarding(); }
+function prevStep(){ if(obStep>1){ obStep--; updateOnboarding(); } }
+function finishOnboarding(){ const profile = { height:document.getElementById('obHeight').value, weight:document.getElementById('obWeight').value, age:document.getElementById('obAge').value, goal:document.getElementById('obGoal').value, diet:document.getElementById('obDiet').value, proteinTarget:document.getElementById('obProtein').value, caloriesTarget:document.getElementById('obCalories').value, workoutDays:document.getElementById('obWorkoutDays').value, split:document.getElementById('obSplit').value, bedtime:document.getElementById('obBedtime').value, wake:document.getElementById('obWake').value }; saveProfile(currentUser.email, profile); showApp(); }
+function initApp(){ const session = localStorage.getItem('fems_session'); if(session){ currentUser = JSON.parse(session); if(currentUser.email === 'admin@fems.app') currentUser.isAdmin = true; if(!getProfile(currentUser.email) && !currentUser.isAdmin) showSection('onboarding'); else showApp(); } else showSection('auth-login'); }
+function showApp(){ showSection('app'); document.getElementById('topbarName').innerText = currentUser.name; document.getElementById('topbarAvatar').innerText = (currentUser.name[0]||'U').toUpperCase(); document.getElementById('topbarDate').innerText = new Date().toLocaleDateString(); document.querySelectorAll('.admin-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'flex' : 'none'); document.querySelectorAll('.user-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'none' : 'flex'); if(currentUser.isAdmin) renderAdminPanel(); else renderDashboard(); setupSidebar(); }
+function setupSidebar(){ document.querySelectorAll('.sidebar-item').forEach(el=>{ el.addEventListener('click',()=>{ const page = el.dataset.page; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(`page-${page}`).classList.add('active'); if(page==='weekly') renderWeekly(); if(page==='history') renderCalendar(); if(page==='profile') renderProfile(); if(page==='admin' && currentUser.isAdmin) renderAdminPanel(); }); }); document.querySelector('.sidebar-item').click(); }
+function renderDashboard(){ const stats = getStats(currentUser.email); document.getElementById('dashXp').innerText = stats.totalXP||0; document.getElementById('dashStreak').innerText = stats.streak||0; document.getElementById('dashWorkouts').innerText = stats.workouts||0; document.getElementById('dashPmo').innerText = stats.pmoDays||0; const prof = getProfile(currentUser.email); if(prof){ document.getElementById('dashGoal').innerText = prof.goal; document.getElementById('dashWeight').innerText = prof.weight; } const today = new Date().toISOString().slice(0,10); const log = (getWorkouts(currentUser.email)[today]||[])[0]; const statusDiv = document.getElementById('todayStatus'); if(log) statusDiv.innerHTML = `<div>✔️ Logged: ${log.exercises?.length||0} exercises, ${log.steps||0} steps</div>`; else statusDiv.innerHTML = 'No log yet today.';
+  const dailyXp = log ? calcXp(log) : 0; document.getElementById('dashDailyXp').innerText = `${dailyXp}/440 XP`; document.getElementById('dashXpBar').style.width = `${Math.min(dailyXp/440*100,100)}%`;
+}
+function calcXp(log){ let xp=0; if(log.exercises?.length) xp+=80; if(log.steps>=11000) xp+=60; if(log.protein>=150) xp+=70; if(log.slept) xp+=80; if(log.pmoFree) xp+=100; if(log.noPhone) xp+=50; return xp; }
+function addExerciseField(){ const div = document.createElement('div'); div.className='exercise-entry'; div.innerHTML = `<input placeholder="Exercise"><input placeholder="Sets"><input placeholder="Reps"><input placeholder="kg"><span class="remove-exercise" onclick="this.parentElement.remove()">✕</span>`; document.getElementById('logExercises').appendChild(div); }
+function saveWorkoutLog(){ const date = document.getElementById('logDate').value || new Date().toISOString().slice(0,10); const exercises = [...document.querySelectorAll('#logExercises .exercise-entry')].map(row=>({ name:row.children[0].value, sets:row.children[1].value, reps:row.children[2].value, weight:row.children[3].value })).filter(e=>e.name); const log = { exercises, steps:parseInt(document.getElementById('logSteps').value)||0, protein:parseInt(document.getElementById('logProtein').value)||0, slept:document.getElementById('logSlept').value==='true', pmoFree:document.getElementById('logPmo').value==='true', noPhone:document.getElementById('logPhone').value==='true', mood:parseInt(document.getElementById('logMood').value), notes:document.getElementById('logNotes').value }; let workouts = getWorkouts(currentUser.email); if(!workouts[date]) workouts[date]=[]; workouts[date].push(log); saveWorkouts(currentUser.email, workouts); const xp = calcXp(log); const stats = getStats(currentUser.email); stats.totalXP = (stats.totalXP||0)+xp; stats.workouts = (stats.workouts||0)+1; if(log.pmoFree) stats.pmoDays = (stats.pmoDays||0)+1; stats.streak = (stats.streak||0)+1; saveStats(currentUser.email, stats); toast(`Logged! +${xp} XP`); renderDashboard(); }
+function renderCalendar(){ const now = new Date(window.currentMonth||new Date()); window.currentMonth = now; const year = now.getFullYear(), month = now.getMonth(); document.getElementById('monthLabel').innerText = now.toLocaleDateString(undefined,{month:'long',year:'numeric'}); const firstDay = new Date(year,month,1).getDay(); const daysInMonth = new Date(year,month+1,0).getDate(); const workouts = getWorkouts(currentUser.email); let html=''; for(let i=0;i<firstDay;i++) html+='<div></div>'; for(let d=1;d<=daysInMonth;d++){ const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const has = workouts[key] && workouts[key].length; html+=`<div class="cal-day ${has?'has-log':''} ${key===new Date().toISOString().slice(0,10)?'today':''}" onclick="openTextbook('${key}')">${d}${has?'<span class="dot"></span>':''}</div>`; } document.getElementById('calendarGrid').innerHTML = html; }
+function changeMonth(delta){ window.currentMonth = new Date(window.currentMonth||new Date()); window.currentMonth.setMonth(window.currentMonth.getMonth()+delta); renderCalendar(); }
+function openTextbook(date){ const logs = getWorkouts(currentUser.email)[date]; if(!logs||!logs.length) return toast('No session on this date'); const log = logs[0]; const good=[], bad=[]; if(log.exercises?.length) good.push(`✅ ${log.exercises.length} exercises`); else bad.push('❌ No exercises'); if(log.steps>=11000) good.push('✅ Steps goal met'); else if(log.steps) bad.push('⚠️ Steps low'); if(log.protein>=150) good.push('✅ Protein target'); else if(log.protein) bad.push('⚠️ Protein low'); if(log.slept) good.push('✅ Good sleep'); else bad.push('⚠️ Sleep missed'); if(log.pmoFree) good.push('✅ PMO-free'); else bad.push('⚠️ PMO not free'); document.getElementById('tbDate').innerHTML = `<strong>${date}</strong><br>${log.notes||'No notes'}`; document.getElementById('tbGood').innerHTML = `<h4>✨ What went well</h4><ul>${good.map(g=>`<li>${g}</li>`).join('')}</ul>`; document.getElementById('tbBad').innerHTML = `<h4>⚠️ Improve</h4><ul>${bad.map(b=>`<li>${b}</li>`).join('')}</ul>`; document.getElementById('tbDetails').innerHTML = `<h4>🏋️ Exercises</h4><ul>${log.exercises?.map(e=>`<li>${e.name} ${e.sets}x${e.reps} @${e.weight}kg</li>`).join('')||'—'}</ul>`; document.getElementById('textbookModal').classList.add('open'); }
+function renderWeekly(){ const workouts = getWorkouts(currentUser.email); const last7 = []; for(let i=6;i>=0;i--){ const d = new Date(); d.setDate(d.getDate()-i); const key = d.toISOString().slice(0,10); last7.push({key, log: workouts[key]?.[0]}); } let html = `<div class="weekly-recap-card"><h3>Last 7 days</h3>`; for(const day of last7){ const xp = day.log ? calcXp(day.log) : 0; html+=`<div class="flex" style="justify-content:space-between; margin:8px 0"><span>${day.key}</span><span>${xp} XP</span><div class="weekly-progress-bar" style="width:100px"><div class="weekly-progress-fill" style="width:${xp/440*100}%"></div></div></div>`; } html+=`</div>`; document.getElementById('weeklyContent').innerHTML = html; }
+function renderProfile(){ const prof = getProfile(currentUser.email); const stats = getStats(currentUser.email); document.getElementById('profName').innerText = currentUser.name; document.getElementById('profEmail').innerText = currentUser.email; document.getElementById('profHeight').innerText = prof?.height||'—'; document.getElementById('profWeight').innerText = prof?.weight||'—'; document.getElementById('profGoal').innerText = prof?.goal||'—'; document.getElementById('profDiet').innerText = prof?.diet||'—'; document.getElementById('profXp').innerText = stats.totalXP||0; document.getElementById('profStreak').innerText = stats.streak||0; }
+function openEditProfileModal(){ const prof = getProfile(currentUser.email)||{}; document.getElementById('editHeight').value = prof.height||''; document.getElementById('editWeight').value = prof.weight||''; document.getElementById('editGoal').value = prof.goal||'Build muscle'; document.getElementById('editDiet').value = prof.diet||'Vegetarian'; document.getElementById('editProfileModal').classList.add('open'); }
+function saveProfileEdit(){ const prof = { height:document.getElementById('editHeight').value, weight:document.getElementById('editWeight').value, goal:document.getElementById('editGoal').value, diet:document.getElementById('editDiet').value }; saveProfile(currentUser.email, prof); closeModal('editProfileModal'); renderProfile(); renderDashboard(); }
+function renderAdminPanel(){ const users = getUsers().filter(u=>u.email!=='admin@fems.app'); const tbody = document.getElementById('adminUserList'); tbody.innerHTML = users.map(u=>`<tr><td>${u.name}</td><td>${u.email}</td><td><button class="btn btn-ghost btn-sm" onclick="adminEditUser('${u.email}')">Edit</button></td></tr>`).join(''); }
+function adminEditUser(email){ const prof = getProfile(email)||{}; const newHeight = prompt('Height (cm)', prof.height); const newWeight = prompt('Weight (kg)', prof.weight); const newGoal = prompt('Goal', prof.goal); if(newHeight) prof.height=newHeight; if(newWeight) prof.weight=newWeight; if(newGoal) prof.goal=newGoal; saveProfile(email, prof); toast(`Updated ${email}`); renderAdminPanel(); }
+const Gacha = { trigger(){ const workouts = getWorkouts(currentUser.email); const last30 = []; for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const key=d.toISOString().slice(0,10); if(workouts[key]) last30.push(workouts[key][0]); } const days=last30.length; const xp=last30.reduce((s,l)=>s+calcXp(l),0); let rank='C',emoji='🌱',msg='Keep going!'; if(days>=27){ rank='SSR'; emoji='🏆'; msg='Legendary consistency!'; }else if(days>=20){ rank='SR'; emoji='💎'; msg='Elite discipline'; }else if(days>=12){ rank='A'; emoji='⚡'; msg='Solid momentum'; } document.getElementById('gachaRank').innerText = rank; document.getElementById('gachaEmoji').innerText = emoji; document.getElementById('gachaMsg').innerText = msg; document.getElementById('gachaDays').innerText = days; document.getElementById('gachaXp').innerText = xp; document.getElementById('gachaModal').classList.add('open'); } };
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+window.onload = ()=>{ setTimeout(()=>{ document.getElementById('loader')?.classList.add('fade-out'); setTimeout(()=>document.getElementById('loader')?.remove(),400); },1200); initApp(); document.getElementById('loginForm')?.addEventListener('submit',handleLogin); document.getElementById('signupForm')?.addEventListener('submit',handleSignup); document.getElementById('obNext')?.addEventListener('click',nextStep); document.getElementById('obBack')?.addEventListener('click',prevStep); document.getElementById('logMood')?.addEventListener('input',e=>document.getElementById('moodValue').innerText=e.target.value+'/10'); document.getElementById('logDate').value = new Date().toISOString().slice(0,10); addExerciseField(); };
+</script>
+</body>
+</html>
