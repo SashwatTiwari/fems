@@ -6,7 +6,7 @@
   <title>FEMS · Friend Exercise Monitor System</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* ---------- GLOBAL DESIGN SYSTEM (your colour palette) ---------- */
+    /* ---------- GLOBAL DESIGN SYSTEM ---------- */
     :root {
       --bg-main:       #0C1519;
       --bg-card:       #0A1931;
@@ -38,14 +38,12 @@
       min-height: 100vh;
       line-height: 1.6;
     }
-    a { color: inherit; }
     button { cursor: pointer; border: none; background: none; font-family: inherit; }
     input, select, textarea { font-family: inherit; background: transparent; border: none; outline: none; color: var(--text-primary); }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: var(--bg-card); }
     ::-webkit-scrollbar-thumb { background: var(--accent-warm); border-radius: 2px; }
     h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; }
-    h1 { font-size: clamp(1.6rem, 3vw, 2.4rem); }
     p { font-size: 0.9rem; color: var(--accent-sand); }
 
     .hidden { display: none !important; }
@@ -82,7 +80,7 @@
     .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
     .btn-full { width: 100%; }
 
-    /* App layout (sidebar + topbar) */
+    /* App layout */
     .app-wrapper { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 56px 1fr; min-height: 100vh; }
     .topbar { grid-column: 1 / -1; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 100; }
     .topbar-logo { font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-warm); letter-spacing: 3px; margin-right: auto; }
@@ -152,8 +150,33 @@
 <div id="editProfileModal" class="modal-overlay"><div class="edit-modal"><h3>Edit Profile</h3><div class="form-group"><label>Height (cm)</label><input type="number" id="editHeight" class="form-input"></div><div class="form-group"><label>Weight (kg)</label><input type="number" id="editWeight" class="form-input"></div><div class="form-group"><label>Goal</label><select id="editGoal" class="form-input"><option>Build muscle</option><option>Lose fat</option><option>Stay fit</option></select></div><div class="form-group"><label>Diet</label><select id="editDiet" class="form-input"><option>Vegetarian</option><option>Non-Veg</option><option>Vegan</option></select></div><div class="flex" style="justify-content:flex-end"><button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancel</button><button class="btn btn-primary" onclick="saveProfileEdit()">Save</button></div></div></div>
 
 <script>
-// ---------- STORAGE & AUTH ----------
-let currentUser = null;
+// ---------- UTILITIES ----------
+function getISTDate() {
+  // returns YYYY-MM-DD in Indian Standard Time (UTC+5:30)
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  return istDate.toISOString().split('T')[0];
+}
+
+function formatIST(dateStr) {
+  // input YYYY-MM-DD, output readable in IST
+  const [y,m,d] = dateStr.split('-');
+  return new Date(Date.UTC(y, m-1, d)).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday:'short', day:'numeric', month:'short' });
+}
+
+function toast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
+  c.appendChild(t); setTimeout(()=>t.remove(),2500);
+}
+
+function showSection(id) {
+  document.querySelectorAll('[data-section]').forEach(s => s.classList.add('hidden'));
+  document.querySelector(`[data-section="${id}"]`).classList.remove('hidden');
+}
+
+// ---------- STORAGE ----------
 function getUsers() { return JSON.parse(localStorage.getItem('fems_users') || '[]'); }
 function saveUsers(users) { localStorage.setItem('fems_users', JSON.stringify(users)); }
 function getUserData(email, key) { return JSON.parse(localStorage.getItem(`fems_${email}_${key}`) || 'null'); }
@@ -165,46 +188,360 @@ function saveProfile(email, prof) { setUserData(email, 'profile', prof); }
 function getStats(email) { return getUserData(email, 'stats') || { totalXP:0, streak:0, workouts:0, pmoDays:0 }; }
 function saveStats(email, stats) { setUserData(email, 'stats', stats); }
 
-function showSection(id) { document.querySelectorAll('[data-section]').forEach(s => s.classList.add('hidden')); document.querySelector(`[data-section="${id}"]`).classList.remove('hidden'); }
-function toast(msg, type='info') { const c = document.getElementById('toast-container'); const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg; c.appendChild(t); setTimeout(()=>t.remove(),2500); }
+// ---------- AUTH ----------
+let currentUser = null;
 
-// Auth
-function handleLogin(e) { e.preventDefault(); const id = document.getElementById('loginId').value; const pwd = document.getElementById('loginPwd').value; if(id === 'admin@fems.app' && pwd === 'sashwat') { currentUser = { email:'admin@fems.app', name:'Admin', isAdmin:true }; localStorage.setItem('fems_session', JSON.stringify(currentUser)); initApp(); return; } const users = getUsers(); const u = users.find(u=>u.email===id && u.password===pwd); if(u){ currentUser = { email:u.email, name:u.name, isAdmin:false }; localStorage.setItem('fems_session', JSON.stringify(currentUser)); initApp(); } else toast('Invalid credentials','error'); }
-function handleSignup(e) { e.preventDefault(); const name = document.getElementById('signupName').value; const email = document.getElementById('signupEmail').value; const pwd = document.getElementById('signupPwd').value; const cpwd = document.getElementById('signupCpwd').value; if(pwd!==cpwd) return toast('Passwords mismatch'); if(getUsers().find(u=>u.email===email)) return toast('Email exists'); const users = getUsers(); users.push({ email, name, password:pwd }); saveUsers(users); toast('Account created! Please login'); showSection('auth-login'); }
-function handleLogout() { localStorage.removeItem('fems_session'); currentUser=null; showSection('auth-login'); }
+function handleLogin(e) {
+  e.preventDefault();
+  const id = document.getElementById('loginId').value.trim();
+  const pwd = document.getElementById('loginPwd').value;
+  // Admin hardcoded
+  if(id === 'admin@fems.app' && pwd === 'sashwat') {
+    currentUser = { email:'admin@fems.app', name:'Admin', isAdmin:true };
+    localStorage.setItem('fems_session', JSON.stringify(currentUser));
+    initApp();
+    return;
+  }
+  const users = getUsers();
+  const user = users.find(u => u.email === id && u.password === pwd);
+  if(user) {
+    currentUser = { email: user.email, name: user.name, isAdmin: false };
+    localStorage.setItem('fems_session', JSON.stringify(currentUser));
+    initApp();
+  } else {
+    toast('Invalid email or password', 'error');
+  }
+}
 
-// Onboarding
-let obStep=1;
-function updateOnboarding(){
+function handleSignup(e) {
+  e.preventDefault();
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pwd = document.getElementById('signupPwd').value;
+  const cpwd = document.getElementById('signupCpwd').value;
+  if(pwd !== cpwd) return toast('Passwords do not match');
+  if(pwd.length < 6) return toast('Password must be at least 6 characters');
+  const users = getUsers();
+  if(users.find(u => u.email === email)) return toast('Email already exists');
+  users.push({ email, name, password: pwd });
+  saveUsers(users);
+  toast('Account created! Please log in', 'success');
+  showSection('auth-login');
+}
+
+function handleLogout() {
+  localStorage.removeItem('fems_session');
+  currentUser = null;
+  showSection('auth-login');
+}
+
+// ---------- ONBOARDING ----------
+let obStep = 1;
+function updateOnboardingUI() {
   for(let i=1;i<=4;i++) document.getElementById(`step${i}`).classList.toggle('hidden', i!==obStep);
   document.querySelectorAll('.step-dot').forEach((d,i)=>{ d.style.background = i+1<=obStep ? 'var(--accent-warm)' : 'var(--border)'; });
   document.getElementById('obBack').classList.toggle('hidden', obStep===1);
   document.getElementById('obNext').innerText = obStep===4 ? 'Finish →' : 'Next →';
 }
-function nextStep(){ if(obStep<4){ obStep++; updateOnboarding(); } else finishOnboarding(); }
-function prevStep(){ if(obStep>1){ obStep--; updateOnboarding(); } }
-function finishOnboarding(){ const profile = { height:document.getElementById('obHeight').value, weight:document.getElementById('obWeight').value, age:document.getElementById('obAge').value, goal:document.getElementById('obGoal').value, diet:document.getElementById('obDiet').value, proteinTarget:document.getElementById('obProtein').value, caloriesTarget:document.getElementById('obCalories').value, workoutDays:document.getElementById('obWorkoutDays').value, split:document.getElementById('obSplit').value, bedtime:document.getElementById('obBedtime').value, wake:document.getElementById('obWake').value }; saveProfile(currentUser.email, profile); showApp(); }
-function initApp(){ const session = localStorage.getItem('fems_session'); if(session){ currentUser = JSON.parse(session); if(currentUser.email === 'admin@fems.app') currentUser.isAdmin = true; if(!getProfile(currentUser.email) && !currentUser.isAdmin) showSection('onboarding'); else showApp(); } else showSection('auth-login'); }
-function showApp(){ showSection('app'); document.getElementById('topbarName').innerText = currentUser.name; document.getElementById('topbarAvatar').innerText = (currentUser.name[0]||'U').toUpperCase(); document.getElementById('topbarDate').innerText = new Date().toLocaleDateString(); document.querySelectorAll('.admin-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'flex' : 'none'); document.querySelectorAll('.user-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'none' : 'flex'); if(currentUser.isAdmin) renderAdminPanel(); else renderDashboard(); setupSidebar(); }
-function setupSidebar(){ document.querySelectorAll('.sidebar-item').forEach(el=>{ el.addEventListener('click',()=>{ const page = el.dataset.page; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(`page-${page}`).classList.add('active'); if(page==='weekly') renderWeekly(); if(page==='history') renderCalendar(); if(page==='profile') renderProfile(); if(page==='admin' && currentUser.isAdmin) renderAdminPanel(); }); }); document.querySelector('.sidebar-item').click(); }
-function renderDashboard(){ const stats = getStats(currentUser.email); document.getElementById('dashXp').innerText = stats.totalXP||0; document.getElementById('dashStreak').innerText = stats.streak||0; document.getElementById('dashWorkouts').innerText = stats.workouts||0; document.getElementById('dashPmo').innerText = stats.pmoDays||0; const prof = getProfile(currentUser.email); if(prof){ document.getElementById('dashGoal').innerText = prof.goal; document.getElementById('dashWeight').innerText = prof.weight; } const today = new Date().toISOString().slice(0,10); const log = (getWorkouts(currentUser.email)[today]||[])[0]; const statusDiv = document.getElementById('todayStatus'); if(log) statusDiv.innerHTML = `<div>✔️ Logged: ${log.exercises?.length||0} exercises, ${log.steps||0} steps</div>`; else statusDiv.innerHTML = 'No log yet today.';
-  const dailyXp = log ? calcXp(log) : 0; document.getElementById('dashDailyXp').innerText = `${dailyXp}/440 XP`; document.getElementById('dashXpBar').style.width = `${Math.min(dailyXp/440*100,100)}%`;
+function nextStep() { if(obStep<4) { obStep++; updateOnboardingUI(); } else finishOnboarding(); }
+function prevStep() { if(obStep>1) { obStep--; updateOnboardingUI(); } }
+function finishOnboarding() {
+  const profile = {
+    height: document.getElementById('obHeight').value,
+    weight: document.getElementById('obWeight').value,
+    age: document.getElementById('obAge').value,
+    goal: document.getElementById('obGoal').value,
+    diet: document.getElementById('obDiet').value,
+    proteinTarget: document.getElementById('obProtein').value,
+    caloriesTarget: document.getElementById('obCalories').value,
+    workoutDays: document.getElementById('obWorkoutDays').value,
+    split: document.getElementById('obSplit').value,
+    bedtime: document.getElementById('obBedtime').value,
+    wake: document.getElementById('obWake').value
+  };
+  saveProfile(currentUser.email, profile);
+  showApp();
 }
-function calcXp(log){ let xp=0; if(log.exercises?.length) xp+=80; if(log.steps>=11000) xp+=60; if(log.protein>=150) xp+=70; if(log.slept) xp+=80; if(log.pmoFree) xp+=100; if(log.noPhone) xp+=50; return xp; }
-function addExerciseField(){ const div = document.createElement('div'); div.className='exercise-entry'; div.innerHTML = `<input placeholder="Exercise"><input placeholder="Sets"><input placeholder="Reps"><input placeholder="kg"><span class="remove-exercise" onclick="this.parentElement.remove()">✕</span>`; document.getElementById('logExercises').appendChild(div); }
-function saveWorkoutLog(){ const date = document.getElementById('logDate').value || new Date().toISOString().slice(0,10); const exercises = [...document.querySelectorAll('#logExercises .exercise-entry')].map(row=>({ name:row.children[0].value, sets:row.children[1].value, reps:row.children[2].value, weight:row.children[3].value })).filter(e=>e.name); const log = { exercises, steps:parseInt(document.getElementById('logSteps').value)||0, protein:parseInt(document.getElementById('logProtein').value)||0, slept:document.getElementById('logSlept').value==='true', pmoFree:document.getElementById('logPmo').value==='true', noPhone:document.getElementById('logPhone').value==='true', mood:parseInt(document.getElementById('logMood').value), notes:document.getElementById('logNotes').value }; let workouts = getWorkouts(currentUser.email); if(!workouts[date]) workouts[date]=[]; workouts[date].push(log); saveWorkouts(currentUser.email, workouts); const xp = calcXp(log); const stats = getStats(currentUser.email); stats.totalXP = (stats.totalXP||0)+xp; stats.workouts = (stats.workouts||0)+1; if(log.pmoFree) stats.pmoDays = (stats.pmoDays||0)+1; stats.streak = (stats.streak||0)+1; saveStats(currentUser.email, stats); toast(`Logged! +${xp} XP`); renderDashboard(); }
-function renderCalendar(){ const now = new Date(window.currentMonth||new Date()); window.currentMonth = now; const year = now.getFullYear(), month = now.getMonth(); document.getElementById('monthLabel').innerText = now.toLocaleDateString(undefined,{month:'long',year:'numeric'}); const firstDay = new Date(year,month,1).getDay(); const daysInMonth = new Date(year,month+1,0).getDate(); const workouts = getWorkouts(currentUser.email); let html=''; for(let i=0;i<firstDay;i++) html+='<div></div>'; for(let d=1;d<=daysInMonth;d++){ const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const has = workouts[key] && workouts[key].length; html+=`<div class="cal-day ${has?'has-log':''} ${key===new Date().toISOString().slice(0,10)?'today':''}" onclick="openTextbook('${key}')">${d}${has?'<span class="dot"></span>':''}</div>`; } document.getElementById('calendarGrid').innerHTML = html; }
-function changeMonth(delta){ window.currentMonth = new Date(window.currentMonth||new Date()); window.currentMonth.setMonth(window.currentMonth.getMonth()+delta); renderCalendar(); }
-function openTextbook(date){ const logs = getWorkouts(currentUser.email)[date]; if(!logs||!logs.length) return toast('No session on this date'); const log = logs[0]; const good=[], bad=[]; if(log.exercises?.length) good.push(`✅ ${log.exercises.length} exercises`); else bad.push('❌ No exercises'); if(log.steps>=11000) good.push('✅ Steps goal met'); else if(log.steps) bad.push('⚠️ Steps low'); if(log.protein>=150) good.push('✅ Protein target'); else if(log.protein) bad.push('⚠️ Protein low'); if(log.slept) good.push('✅ Good sleep'); else bad.push('⚠️ Sleep missed'); if(log.pmoFree) good.push('✅ PMO-free'); else bad.push('⚠️ PMO not free'); document.getElementById('tbDate').innerHTML = `<strong>${date}</strong><br>${log.notes||'No notes'}`; document.getElementById('tbGood').innerHTML = `<h4>✨ What went well</h4><ul>${good.map(g=>`<li>${g}</li>`).join('')}</ul>`; document.getElementById('tbBad').innerHTML = `<h4>⚠️ Improve</h4><ul>${bad.map(b=>`<li>${b}</li>`).join('')}</ul>`; document.getElementById('tbDetails').innerHTML = `<h4>🏋️ Exercises</h4><ul>${log.exercises?.map(e=>`<li>${e.name} ${e.sets}x${e.reps} @${e.weight}kg</li>`).join('')||'—'}</ul>`; document.getElementById('textbookModal').classList.add('open'); }
-function renderWeekly(){ const workouts = getWorkouts(currentUser.email); const last7 = []; for(let i=6;i>=0;i--){ const d = new Date(); d.setDate(d.getDate()-i); const key = d.toISOString().slice(0,10); last7.push({key, log: workouts[key]?.[0]}); } let html = `<div class="weekly-recap-card"><h3>Last 7 days</h3>`; for(const day of last7){ const xp = day.log ? calcXp(day.log) : 0; html+=`<div class="flex" style="justify-content:space-between; margin:8px 0"><span>${day.key}</span><span>${xp} XP</span><div class="weekly-progress-bar" style="width:100px"><div class="weekly-progress-fill" style="width:${xp/440*100}%"></div></div></div>`; } html+=`</div>`; document.getElementById('weeklyContent').innerHTML = html; }
-function renderProfile(){ const prof = getProfile(currentUser.email); const stats = getStats(currentUser.email); document.getElementById('profName').innerText = currentUser.name; document.getElementById('profEmail').innerText = currentUser.email; document.getElementById('profHeight').innerText = prof?.height||'—'; document.getElementById('profWeight').innerText = prof?.weight||'—'; document.getElementById('profGoal').innerText = prof?.goal||'—'; document.getElementById('profDiet').innerText = prof?.diet||'—'; document.getElementById('profXp').innerText = stats.totalXP||0; document.getElementById('profStreak').innerText = stats.streak||0; }
-function openEditProfileModal(){ const prof = getProfile(currentUser.email)||{}; document.getElementById('editHeight').value = prof.height||''; document.getElementById('editWeight').value = prof.weight||''; document.getElementById('editGoal').value = prof.goal||'Build muscle'; document.getElementById('editDiet').value = prof.diet||'Vegetarian'; document.getElementById('editProfileModal').classList.add('open'); }
-function saveProfileEdit(){ const prof = { height:document.getElementById('editHeight').value, weight:document.getElementById('editWeight').value, goal:document.getElementById('editGoal').value, diet:document.getElementById('editDiet').value }; saveProfile(currentUser.email, prof); closeModal('editProfileModal'); renderProfile(); renderDashboard(); }
-function renderAdminPanel(){ const users = getUsers().filter(u=>u.email!=='admin@fems.app'); const tbody = document.getElementById('adminUserList'); tbody.innerHTML = users.map(u=>`<tr><td>${u.name}</td><td>${u.email}</td><td><button class="btn btn-ghost btn-sm" onclick="adminEditUser('${u.email}')">Edit</button></td></tr>`).join(''); }
-function adminEditUser(email){ const prof = getProfile(email)||{}; const newHeight = prompt('Height (cm)', prof.height); const newWeight = prompt('Weight (kg)', prof.weight); const newGoal = prompt('Goal', prof.goal); if(newHeight) prof.height=newHeight; if(newWeight) prof.weight=newWeight; if(newGoal) prof.goal=newGoal; saveProfile(email, prof); toast(`Updated ${email}`); renderAdminPanel(); }
-const Gacha = { trigger(){ const workouts = getWorkouts(currentUser.email); const last30 = []; for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const key=d.toISOString().slice(0,10); if(workouts[key]) last30.push(workouts[key][0]); } const days=last30.length; const xp=last30.reduce((s,l)=>s+calcXp(l),0); let rank='C',emoji='🌱',msg='Keep going!'; if(days>=27){ rank='SSR'; emoji='🏆'; msg='Legendary consistency!'; }else if(days>=20){ rank='SR'; emoji='💎'; msg='Elite discipline'; }else if(days>=12){ rank='A'; emoji='⚡'; msg='Solid momentum'; } document.getElementById('gachaRank').innerText = rank; document.getElementById('gachaEmoji').innerText = emoji; document.getElementById('gachaMsg').innerText = msg; document.getElementById('gachaDays').innerText = days; document.getElementById('gachaXp').innerText = xp; document.getElementById('gachaModal').classList.add('open'); } };
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-window.onload = ()=>{ setTimeout(()=>{ document.getElementById('loader')?.classList.add('fade-out'); setTimeout(()=>document.getElementById('loader')?.remove(),400); },1200); initApp(); document.getElementById('loginForm')?.addEventListener('submit',handleLogin); document.getElementById('signupForm')?.addEventListener('submit',handleSignup); document.getElementById('obNext')?.addEventListener('click',nextStep); document.getElementById('obBack')?.addEventListener('click',prevStep); document.getElementById('logMood')?.addEventListener('input',e=>document.getElementById('moodValue').innerText=e.target.value+'/10'); document.getElementById('logDate').value = new Date().toISOString().slice(0,10); addExerciseField(); };
+
+// ---------- APP INIT & RENDERING ----------
+function initApp() {
+  const session = localStorage.getItem('fems_session');
+  if(session) {
+    currentUser = JSON.parse(session);
+    if(currentUser.email === 'admin@fems.app') currentUser.isAdmin = true;
+    if(!getProfile(currentUser.email) && !currentUser.isAdmin) showSection('onboarding');
+    else showApp();
+  } else {
+    showSection('auth-login');
+  }
+}
+
+function showApp() {
+  showSection('app');
+  document.getElementById('topbarName').innerText = currentUser.name;
+  document.getElementById('topbarAvatar').innerText = (currentUser.name[0]||'U').toUpperCase();
+  document.getElementById('topbarDate').innerText = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'flex' : 'none');
+  document.querySelectorAll('.user-only').forEach(el=>el.style.display = currentUser.isAdmin ? 'none' : 'flex');
+  if(currentUser.isAdmin) renderAdminPanel();
+  else renderDashboard();
+  setupSidebar();
+}
+
+function setupSidebar() {
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const page = el.dataset.page;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(`page-${page}`).classList.add('active');
+      if(page === 'weekly') renderWeekly();
+      if(page === 'history') renderCalendar();
+      if(page === 'profile') renderProfile();
+      if(page === 'admin' && currentUser.isAdmin) renderAdminPanel();
+    });
+  });
+  document.querySelector('.sidebar-item').click(); // default dashboard
+}
+
+function calcXp(log) {
+  let xp=0;
+  if(log.exercises?.length) xp+=80;
+  if(log.steps>=11000) xp+=60;
+  if(log.protein>=150) xp+=70;
+  if(log.slept) xp+=80;
+  if(log.pmoFree) xp+=100;
+  if(log.noPhone) xp+=50;
+  return xp;
+}
+
+function renderDashboard() {
+  const stats = getStats(currentUser.email);
+  document.getElementById('dashXp').innerText = stats.totalXP||0;
+  document.getElementById('dashStreak').innerText = stats.streak||0;
+  document.getElementById('dashWorkouts').innerText = stats.workouts||0;
+  document.getElementById('dashPmo').innerText = stats.pmoDays||0;
+  const prof = getProfile(currentUser.email);
+  if(prof){
+    document.getElementById('dashGoal').innerText = prof.goal;
+    document.getElementById('dashWeight').innerText = prof.weight;
+  }
+  const today = getISTDate();
+  const log = (getWorkouts(currentUser.email)[today]||[])[0];
+  const statusDiv = document.getElementById('todayStatus');
+  if(log) statusDiv.innerHTML = `<div>✔️ Logged: ${log.exercises?.length||0} exercises, ${log.steps||0} steps</div>`;
+  else statusDiv.innerHTML = 'No log yet today.';
+  const dailyXp = log ? calcXp(log) : 0;
+  document.getElementById('dashDailyXp').innerHTML = `${dailyXp} / 440 XP`;
+  document.getElementById('dashXpBar').style.width = `${Math.min(dailyXp/440*100,100)}%`;
+}
+
+// Workout logging
+let exerciseCounter = 0;
+function addExerciseField() {
+  const div = document.createElement('div'); div.className='exercise-entry';
+  div.innerHTML = `<input placeholder="Exercise"><input placeholder="Sets"><input placeholder="Reps"><input placeholder="kg"><span class="remove-exercise" onclick="this.parentElement.remove()">✕</span>`;
+  document.getElementById('logExercises').appendChild(div);
+}
+
+function saveWorkoutLog() {
+  const date = document.getElementById('logDate').value || getISTDate();
+  const exercises = [...document.querySelectorAll('#logExercises .exercise-entry')].map(row=>({
+    name: row.children[0].value,
+    sets: row.children[1].value,
+    reps: row.children[2].value,
+    weight: row.children[3].value
+  })).filter(e=>e.name);
+  const log = {
+    exercises,
+    steps: parseInt(document.getElementById('logSteps').value)||0,
+    protein: parseInt(document.getElementById('logProtein').value)||0,
+    slept: document.getElementById('logSlept').value === 'true',
+    pmoFree: document.getElementById('logPmo').value === 'true',
+    noPhone: document.getElementById('logPhone').value === 'true',
+    mood: parseInt(document.getElementById('logMood').value),
+    notes: document.getElementById('logNotes').value
+  };
+  let workouts = getWorkouts(currentUser.email);
+  if(!workouts[date]) workouts[date]=[];
+  workouts[date].push(log);
+  saveWorkouts(currentUser.email, workouts);
+  const xp = calcXp(log);
+  const stats = getStats(currentUser.email);
+  stats.totalXP = (stats.totalXP||0)+xp;
+  stats.workouts = (stats.workouts||0)+1;
+  if(log.pmoFree) stats.pmoDays = (stats.pmoDays||0)+1;
+  stats.streak = (stats.streak||0)+1;
+  saveStats(currentUser.email, stats);
+  toast(`Logged! +${xp} XP`);
+  renderDashboard();
+}
+
+// History & Calendar (IST)
+let currentMonth = new Date();
+function renderCalendar() {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const startWeekday = firstDay.getUTCDay(); // 0 Sunday
+  const daysInMonth = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
+  const todayIST = getISTDate();
+  const workouts = getWorkouts(currentUser.email);
+  let html = '';
+  for(let i=0;i<startWeekday;i++) html+='<div></div>';
+  for(let d=1; d<=daysInMonth; d++) {
+    const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has = workouts[key] && workouts[key].length;
+    const isToday = (key === todayIST);
+    html += `<div class="cal-day ${has?'has-log':''} ${isToday?'today':''}" onclick="openTextbook('${key}')">${d}${has?'<span class="dot"></span>':''}</div>`;
+  }
+  document.getElementById('calendarGrid').innerHTML = html;
+  document.getElementById('monthLabel').innerText = currentMonth.toLocaleDateString('en-IN', { month:'long', year:'numeric', timeZone:'Asia/Kolkata' });
+}
+function changeMonth(delta) {
+  currentMonth.setMonth(currentMonth.getMonth()+delta);
+  renderCalendar();
+}
+
+function openTextbook(date) {
+  const logs = getWorkouts(currentUser.email)[date];
+  if(!logs || !logs.length) return toast('No session on this date');
+  const log = logs[0];
+  const good=[], bad=[];
+  if(log.exercises?.length) good.push(`✅ ${log.exercises.length} exercises`); else bad.push('❌ No exercises');
+  if(log.steps>=11000) good.push('✅ Steps goal met'); else if(log.steps) bad.push('⚠️ Steps low');
+  if(log.protein>=150) good.push('✅ Protein target'); else if(log.protein) bad.push('⚠️ Protein low');
+  if(log.slept) good.push('✅ Good sleep'); else bad.push('⚠️ Sleep missed');
+  if(log.pmoFree) good.push('✅ PMO-free'); else bad.push('⚠️ PMO not free');
+  document.getElementById('tbDate').innerHTML = `<strong>${formatIST(date)}</strong><br>${log.notes||'No notes'}`;
+  document.getElementById('tbGood').innerHTML = `<h4>✨ What went well</h4><ul>${good.map(g=>`<li>${g}</li>`).join('')}</ul>`;
+  document.getElementById('tbBad').innerHTML = `<h4>⚠️ Improve</h4><ul>${bad.map(b=>`<li>${b}</li>`).join('')}</ul>`;
+  document.getElementById('tbDetails').innerHTML = `<h4>🏋️ Exercises</h4><ul>${log.exercises?.map(e=>`<li>${e.name} ${e.sets}x${e.reps} @${e.weight}kg</li>`).join('')||'—'}</ul>`;
+  document.getElementById('textbookModal').classList.add('open');
+}
+
+function renderWeekly() {
+  const workouts = getWorkouts(currentUser.email);
+  const last7 = [];
+  for(let i=6;i>=0;i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0]; // UTC but fine for week
+    last7.push({key, log: workouts[key]?.[0]});
+  }
+  let html = `<div class="weekly-recap-card"><h3>Last 7 days (IST)</h3>`;
+  for(const day of last7) {
+    const xp = day.log ? calcXp(day.log) : 0;
+    html += `<div class="flex" style="justify-content:space-between; margin:8px 0"><span>${day.key}</span><span>${xp} XP</span><div class="weekly-progress-bar" style="width:100px"><div class="weekly-progress-fill" style="width:${xp/440*100}%"></div></div></div>`;
+  }
+  html += `</div>`;
+  document.getElementById('weeklyContent').innerHTML = html;
+}
+
+function renderProfile() {
+  const prof = getProfile(currentUser.email) || {};
+  const stats = getStats(currentUser.email);
+  document.getElementById('profName').innerText = currentUser.name;
+  document.getElementById('profEmail').innerText = currentUser.email;
+  document.getElementById('profHeight').innerText = prof.height || '—';
+  document.getElementById('profWeight').innerText = prof.weight || '—';
+  document.getElementById('profGoal').innerText = prof.goal || '—';
+  document.getElementById('profDiet').innerText = prof.diet || '—';
+  document.getElementById('profXp').innerText = stats.totalXP || 0;
+  document.getElementById('profStreak').innerText = stats.streak || 0;
+}
+
+function openEditProfileModal() {
+  const prof = getProfile(currentUser.email) || {};
+  document.getElementById('editHeight').value = prof.height || '';
+  document.getElementById('editWeight').value = prof.weight || '';
+  document.getElementById('editGoal').value = prof.goal || 'Build muscle';
+  document.getElementById('editDiet').value = prof.diet || 'Vegetarian';
+  document.getElementById('editProfileModal').classList.add('open');
+}
+
+function saveProfileEdit() {
+  const prof = {
+    height: document.getElementById('editHeight').value,
+    weight: document.getElementById('editWeight').value,
+    goal: document.getElementById('editGoal').value,
+    diet: document.getElementById('editDiet').value
+  };
+  saveProfile(currentUser.email, prof);
+  closeModal('editProfileModal');
+  renderProfile();
+  renderDashboard();
+}
+
+function renderAdminPanel() {
+  const users = getUsers().filter(u => u.email !== 'admin@fems.app');
+  const tbody = document.getElementById('adminUserList');
+  if(!tbody) return;
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="adminEditUser('${u.email}')">Edit</button></td>
+    </tr>
+  `).join('');
+}
+
+function adminEditUser(email) {
+  const prof = getProfile(email) || {};
+  const newHeight = prompt('Height (cm)', prof.height);
+  const newWeight = prompt('Weight (kg)', prof.weight);
+  const newGoal = prompt('Goal', prof.goal);
+  if(newHeight) prof.height = newHeight;
+  if(newWeight) prof.weight = newWeight;
+  if(newGoal) prof.goal = newGoal;
+  saveProfile(email, prof);
+  toast(`Updated ${email}`);
+  renderAdminPanel();
+}
+
+const Gacha = {
+  trigger() {
+    const workouts = getWorkouts(currentUser.email);
+    const last30 = [];
+    for(let i=29;i>=0;i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      if(workouts[key]) last30.push(workouts[key][0]);
+    }
+    const days = last30.length;
+    const xp = last30.reduce((s,l)=>s+calcXp(l),0);
+    let rank='C', emoji='🌱', msg='Keep going!';
+    if(days>=27) { rank='SSR'; emoji='🏆'; msg='Legendary consistency!'; }
+    else if(days>=20) { rank='SR'; emoji='💎'; msg='Elite discipline'; }
+    else if(days>=12) { rank='A'; emoji='⚡'; msg='Solid momentum'; }
+    document.getElementById('gachaRank').innerText = rank;
+    document.getElementById('gachaEmoji').innerText = emoji;
+    document.getElementById('gachaMsg').innerText = msg;
+    document.getElementById('gachaDays').innerText = days;
+    document.getElementById('gachaXp').innerText = xp;
+    document.getElementById('gachaModal').classList.add('open');
+  }
+};
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Initialization
+window.onload = () => {
+  setTimeout(()=>{
+    const loader = document.getElementById('loader');
+    if(loader) { loader.classList.add('fade-out'); setTimeout(()=>loader.remove(),400); }
+  },1200);
+  initApp();
+  document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
+  document.getElementById('signupForm')?.addEventListener('submit', handleSignup);
+  document.getElementById('obNext')?.addEventListener('click', nextStep);
+  document.getElementById('obBack')?.addEventListener('click', prevStep);
+  document.getElementById('logMood')?.addEventListener('input', e => document.getElementById('moodValue').innerText = e.target.value + '/10');
+  document.getElementById('logDate').value = getISTDate();
+  addExerciseField(); // start with one exercise row
+};
 </script>
 </body>
 </html>
